@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 
@@ -82,7 +82,7 @@ export default function ConfiguracionPage() {
     }
   };
 
-  const updateConfig = (section: keyof ConfigData, field: string, value: any) => {
+  const updateConfig = (section: keyof ConfigData, field: string, value: unknown) => {
     setConfig(prev => ({
       ...prev,
       [section]: {
@@ -93,8 +93,9 @@ export default function ConfiguracionPage() {
     setHasChanges(true);
   };
 
-  const updateNestedConfig = (section: keyof ConfigData, nestedField: string, field: string, value: any) => {
+  const updateNestedConfig = (section: keyof ConfigData, nestedField: string, field: string, value: unknown) => {
     if (section !== 'footer' || nestedField !== 'socialLinks') return;
+    if (typeof value !== 'string') return;
     setConfig(prev => ({
       ...prev,
       footer: {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { DataTable } from '@/components/admin/DataTable';
 import { Button } from '@/components/ui/Button';
 import { FormModal } from '@/components/admin/FormModal';
@@ -8,17 +8,28 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { useToast } from '@/components/ui/Toast';
 import { Badge } from '@/components/ui/Badge';
+import type { Product, SeasonalDiscount } from '@/types';
+
+type SeasonalDiscountDraft = Partial<SeasonalDiscount> & {
+  title: string;
+  season: string;
+  discount_percent: number;
+  is_active: boolean;
+  product_id?: string;
+  start_date?: string;
+  end_date?: string;
+};
 
 export default function SeasonalDiscountsPage() {
-  const [items, setItems] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
+  const [items, setItems] = useState<SeasonalDiscount[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [currentItem, setCurrentItem] = useState<any>(null);
+  const [currentItem, setCurrentItem] = useState<SeasonalDiscountDraft | null>(null);
   const { addToast } = useToast();
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
       const [res, prodRes] = await Promise.all([
@@ -27,11 +38,11 @@ export default function SeasonalDiscountsPage() {
       ]);
       setItems(await res.json());
       setProducts(await prodRes.json());
-    } catch (err) { addToast('Error', 'error'); } 
+    } catch { addToast('Error', 'error'); }
     finally { setIsLoading(false); }
-  };
+  }, [addToast]);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,18 +60,18 @@ export default function SeasonalDiscountsPage() {
       addToast('Descuento de temporada guardado', 'success');
       setIsModalOpen(false);
       fetchData();
-    } catch (err) { addToast('Error', 'error'); } 
+    } catch { addToast('Error', 'error'); }
     finally { setIsSubmitting(false); }
   };
 
   const columns = [
     { header: 'Título', accessor: 'title' },
     { header: 'Temporada', accessor: 'season' },
-    { header: 'Producto', accessor: (row: any) => row.product?.name || 'N/A' },
-    { header: 'Descuento', accessor: (row: any) => `${row.discount_percent}%` },
+    { header: 'Producto', accessor: (row: SeasonalDiscount) => row.product?.name || 'N/A' },
+    { header: 'Descuento', accessor: (row: SeasonalDiscount) => `${row.discount_percent}%` },
     { 
       header: 'Estado', 
-      accessor: (row: any) => (
+      accessor: (row: SeasonalDiscount) => (
         <Badge variant={row.is_active ? 'info' : 'default'}>
           {row.is_active ? 'Activo' : 'Inactivo'}
         </Badge>
@@ -68,7 +79,7 @@ export default function SeasonalDiscountsPage() {
     },
     {
       header: 'Acciones',
-      accessor: (row: any) => (
+      accessor: (row: SeasonalDiscount) => (
         <Button variant="ghost" size="sm" onClick={() => { setCurrentItem(row); setIsModalOpen(true); }}>Editar</Button>
       ),
     },
@@ -95,7 +106,7 @@ export default function SeasonalDiscountsPage() {
         onSubmit={handleSubmit}
         isLoading={isSubmitting}
       >
-        <Input label="Título descriptivo" value={currentItem?.title || ''} onChange={(e) => setCurrentItem({ ...currentItem, title: e.target.value })} required />
+        <Input label="Título descriptivo" value={currentItem?.title || ''} onChange={(e) => setCurrentItem({ ...(currentItem ?? { title: '', season: 'Verano', discount_percent: 10, is_active: true }), title: e.target.value })} required />
         <Select
           label="Temporada"
           options={[
@@ -105,19 +116,19 @@ export default function SeasonalDiscountsPage() {
             { value: 'Primavera', label: 'Primavera' },
           ]}
           value={currentItem?.season || 'Verano'}
-          onChange={(e) => setCurrentItem({ ...currentItem, season: e.target.value })}
+          onChange={(e) => setCurrentItem({ ...(currentItem ?? { title: '', season: 'Verano', discount_percent: 10, is_active: true }), season: e.target.value })}
         />
         <Select
           label="Producto"
           options={[{ value: '', label: 'Seleccionar' }, ...products.map(p => ({ value: p.id, label: p.name }))]}
           value={currentItem?.product_id || ''}
-          onChange={(e) => setCurrentItem({ ...currentItem, product_id: e.target.value })}
+          onChange={(e) => setCurrentItem({ ...(currentItem ?? { title: '', season: 'Verano', discount_percent: 10, is_active: true }), product_id: e.target.value })}
           required
         />
-        <Input label="Porcentaje de Descuento (%)" type="number" value={currentItem?.discount_percent || 0} onChange={(e) => setCurrentItem({ ...currentItem, discount_percent: Number(e.target.value) })} required />
+        <Input label="Porcentaje de Descuento (%)" type="number" value={currentItem?.discount_percent || 0} onChange={(e) => setCurrentItem({ ...(currentItem ?? { title: '', season: 'Verano', discount_percent: 10, is_active: true }), discount_percent: Number(e.target.value) })} required />
         <div className="grid grid-cols-2 gap-4">
-          <Input label="Fecha Inicio" type="date" value={currentItem?.start_date?.split('T')[0] || ''} onChange={(e) => setCurrentItem({ ...currentItem, start_date: e.target.value })} required />
-          <Input label="Fecha Fin" type="date" value={currentItem?.end_date?.split('T')[0] || ''} onChange={(e) => setCurrentItem({ ...currentItem, end_date: e.target.value })} required />
+          <Input label="Fecha Inicio" type="date" value={currentItem?.start_date?.split('T')[0] || ''} onChange={(e) => setCurrentItem({ ...(currentItem ?? { title: '', season: 'Verano', discount_percent: 10, is_active: true }), start_date: e.target.value })} required />
+          <Input label="Fecha Fin" type="date" value={currentItem?.end_date?.split('T')[0] || ''} onChange={(e) => setCurrentItem({ ...(currentItem ?? { title: '', season: 'Verano', discount_percent: 10, is_active: true }), end_date: e.target.value })} required />
         </div>
       </FormModal>
     </div>

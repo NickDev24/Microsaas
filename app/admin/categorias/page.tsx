@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import Image from 'next/image';
 import { DataTable } from '@/components/admin/DataTable';
 import { Button } from '@/components/ui/Button';
 import { FormModal } from '@/components/admin/FormModal';
@@ -18,22 +19,22 @@ export default function CategoriesPage() {
   const [currentItem, setCurrentItem] = useState<Partial<Category> | null>(null);
   const { addToast } = useToast();
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await fetch('/api/categories');
       const data = await res.json();
       setCategories(data);
-    } catch (err) {
+    } catch {
       addToast('Error al cargar categorías', 'error');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [addToast]);
 
   useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [fetchCategories]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,8 +59,8 @@ export default function CategoriesPage() {
       addToast(isEditing ? 'Categoría actualizada' : 'Categoría creada', 'success');
       setIsModalOpen(false);
       fetchCategories();
-    } catch (err: any) {
-      addToast(err.message, 'error');
+    } catch {
+      addToast('Error al guardar', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -76,8 +77,8 @@ export default function CategoriesPage() {
       }
       addToast('Categoría eliminada', 'success');
       fetchCategories();
-    } catch (err: any) {
-      addToast(err.message, 'error');
+    } catch {
+      addToast('Error al eliminar', 'error');
     }
   };
 
@@ -86,7 +87,7 @@ export default function CategoriesPage() {
       header: 'Imagen',
       accessor: (row: Category) => (
         row.image_url ? (
-          <img src={row.image_url} alt={row.name} className="w-10 h-10 rounded-lg object-cover" />
+          <Image src={row.image_url} alt={row.name} width={40} height={40} className="w-10 h-10 rounded-lg object-cover" />
         ) : (
           <div className="w-10 h-10 rounded-lg bg-surface-2 flex items-center justify-center text-xs text-muted-2">N/A</div>
         )

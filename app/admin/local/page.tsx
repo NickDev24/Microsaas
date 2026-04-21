@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 
@@ -96,29 +96,13 @@ export default function LocalConfigPage() {
   const [hasChanges, setHasChanges] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const updateConfig = (section: keyof LocalConfig, field: string, value: any) => {
+  const updateConfig = (section: keyof LocalConfig, field: string, value: unknown) => {
     setConfig(prev => ({
       ...prev,
       [section]: {
         ...prev[section],
         [field]: value
       }
-    }));
-    setHasChanges(true);
-  };
-
-  const updateNestedConfig = (section: keyof LocalConfig, nestedField: string, field: string, value: any) => {
-    if (section !== 'datosLocal' || nestedField !== 'coordenadas') return;
-
-    setConfig(prev => ({
-      ...prev,
-      datosLocal: {
-        ...prev.datosLocal,
-        coordenadas: {
-          ...prev.datosLocal.coordenadas,
-          [field as keyof LocalConfig['datosLocal']['coordenadas']]: value as number,
-        },
-      },
     }));
     setHasChanges(true);
   };

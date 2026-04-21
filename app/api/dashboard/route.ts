@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { authorizeRoles } from '@/lib/api-auth';
 
 export async function GET() {
   try {
+    const auth = await authorizeRoles(['super_admin', 'admin_basico']);
+    if (!auth.ok) return auth.response;
+
     const extractSingle = <T>(value: T | T[] | null | undefined): T | null => {
       if (Array.isArray(value)) return value[0] ?? null;
       return value ?? null;
@@ -25,19 +29,19 @@ export async function GET() {
     const { count: pendingOrders } = await supabaseAdmin
       .from('orders')
       .select('*', { count: 'exact', head: true })
-      .eq('status', 'pending');
+      .eq('status', 'pendiente');
 
     // 3. Get total products
     const { count: totalProducts } = await supabaseAdmin
       .from('products')
       .select('*', { count: 'exact', head: true })
-      .eq('status', 'active');
+      .eq('is_active', true);
 
     // 4. Get low stock products
     const { data: refinedLowStock } = await supabaseAdmin
       .from('products')
       .select('id, name, stock, low_stock_threshold')
-      .eq('status', 'active');
+      .eq('is_active', true);
     
     const lowStockItems = refinedLowStock?.filter(p => p.stock <= p.low_stock_threshold) || [];
 
@@ -50,7 +54,8 @@ export async function GET() {
         total,
         payment_method,
         customers!inner(
-          name,
+          first_name,
+          last_name,
           email
         ),
         sale_items!inner(
@@ -74,7 +79,8 @@ export async function GET() {
         total,
         created_at,
         customers!inner(
-          name,
+          first_name,
+          last_name,
           email
         )
       `)
@@ -219,19 +225,21 @@ export async function GET() {
       },
       lowStockItems: lowStockItems.slice(0, 10),
       recentSales: (recentSales || []).map((s) => {
-        const customer = extractFromUnknown<{ name?: string; email?: string }>(s.customers);
+        const customer = extractFromUnknown<{ first_name?: string; last_name?: string; email?: string }>(s.customers);
+        const customerName = [customer?.first_name, customer?.last_name].filter(Boolean).join(' ') || undefined;
         return {
           ...s,
           sale_items: Array.isArray(s.sale_items) ? s.sale_items : [],
-          customer_name: customer?.name,
+          customer_name: customerName,
           customer_email: customer?.email,
         };
       }),
       recentOrders: (recentOrders || []).map((o) => {
-        const customer = extractFromUnknown<{ name?: string; email?: string }>(o.customers);
+        const customer = extractFromUnknown<{ first_name?: string; last_name?: string; email?: string }>(o.customers);
+        const customerName = [customer?.first_name, customer?.last_name].filter(Boolean).join(' ') || undefined;
         return {
           ...o,
-          customer_name: customer?.name,
+          customer_name: customerName,
           customer_email: customer?.email,
         };
       }),

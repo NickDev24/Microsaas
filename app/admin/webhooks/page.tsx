@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 
@@ -92,7 +92,7 @@ export default function WebhooksPage() {
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await fetch('/api/webhooks');
@@ -133,11 +133,11 @@ export default function WebhooksPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const availableEvents = [
     'order.created',
@@ -263,13 +263,18 @@ export default function WebhooksPage() {
     }
   };
 
-  const activeWebhooks = webhooks.filter(w => w.isActive);
-  const inactiveWebhooks = webhooks.filter(w => !w.isActive);
-
   const tabs: Array<{ id: 'webhooks' | 'logs'; label: string; count: number }> = [
     { id: 'webhooks', label: 'Webhooks', count: webhooks.length },
     { id: 'logs', label: 'Logs', count: webhookLogs.length },
   ];
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="text-sm text-muted-2">Cargando...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">

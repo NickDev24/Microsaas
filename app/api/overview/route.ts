@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { authorizeRoles } from '@/lib/api-auth';
 
 export async function GET() {
   try {
+    const auth = await authorizeRoles(['admin', 'super_admin', 'admin_basico']);
+    if (!auth.ok) return auth.response;
+
     const extractSingle = <T>(value: T | T[] | null | undefined): T | null => {
       if (Array.isArray(value)) return value[0] ?? null;
       return value ?? null;
@@ -81,13 +85,13 @@ export async function GET() {
         supabaseAdmin
           .from('orders')
           .select('id, total, status, created_at')
-          .eq('status', 'pending'),
+          .eq('status', 'pendiente'),
         
         // Completed orders
         supabaseAdmin
           .from('orders')
           .select('id, total, status, created_at')
-          .eq('status', 'delivered')
+          .eq('status', 'entregado')
           .gte('created_at', lastMonth.toISOString())
       ]);
 
@@ -138,13 +142,13 @@ export async function GET() {
         supabaseAdmin
           .from('products')
           .select('id', { count: 'exact', head: true })
-          .eq('status', 'active'),
+          .eq('is_active', true),
         
         // Low stock products
         supabaseAdmin
           .from('products')
           .select('id, name, stock, low_stock_threshold')
-          .eq('status', 'active')
+          .eq('is_active', true)
       ]);
 
     const totalProducts = totalProductsResult.count ?? 0;
@@ -209,7 +213,8 @@ export async function GET() {
         sale_date,
         payment_method,
         customers!inner(
-          name
+          first_name,
+          last_name
         )
       `)
       .eq('status', 'completed')

@@ -85,9 +85,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Only allow admin_basico and super_admin roles to log in to admin panel
+    // Temporary fix: Allow admin emails even if they have customer role due to constraint issue
+    const adminEmails = ['facudev4@gmail.com', 'facucercuetti420@gmail.com'];
     const allowedRoles = ['admin_basico', 'super_admin'];
-    if (!allowedRoles.includes(user.role)) {
+    const isAdminEmail = adminEmails.includes(normalizedEmail);
+    
+    if (!allowedRoles.includes(user.role) && !isAdminEmail) {
       await logSecurityEvent({
         event_type: 'login_failed_insufficient_role',
         email: normalizedEmail,

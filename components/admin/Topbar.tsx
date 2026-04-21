@@ -1,27 +1,33 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '../ui/Button';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 interface TopbarProps {
   isDark?: boolean;
   isMobile?: boolean;
-  isSidebarOpen?: boolean;
   onToggleTheme?: () => void;
   onToggleSidebar?: () => void;
 }
 
-export function Topbar({ isDark = false, isMobile = false, isSidebarOpen = true, onToggleTheme, onToggleSidebar }: TopbarProps) {
+export function Topbar({ isDark = false, isMobile = false, onToggleTheme, onToggleSidebar }: TopbarProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { user, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  
+  // Evitar hydration error
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } finally {
+    const success = await logout();
+    if (success) {
       router.push('/admin/login');
       router.refresh();
     }
@@ -186,14 +192,18 @@ export function Topbar({ isDark = false, isMobile = false, isSidebarOpen = true,
             isDark ? 'text-accent hover:text-accent' : 'text-muted hover:text-foreground'
           }`}
         >
-          {isDark ? (
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-            </svg>
+          {mounted ? (
+            isDark ? (
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
+              </svg>
+            )
           ) : (
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
-            </svg>
+            <div className="w-5 h-5" /> // Placeholder para evitar hydration error
           )}
         </Button>
 
@@ -202,12 +212,12 @@ export function Topbar({ isDark = false, isMobile = false, isSidebarOpen = true,
           <span className={`text-sm font-semibold transition-colors ${
             isDark ? 'text-foreground' : 'text-foreground'
           }`}>
-            Usuario autenticado
+            {user?.full_name || 'Usuario autenticado'}
           </span>
           <span className={`text-xs transition-colors ${
             isDark ? 'text-muted-2' : 'text-muted-2'
           }`}>
-            sesión activa
+            {user?.role?.replace('_', ' ') || 'sesión activa'}
           </span>
         </div>
 

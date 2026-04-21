@@ -2,57 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
-
-const menuSections = [
-  {
-    title: 'Navegación',
-    items: [
-      { label: 'Dashboard', href: '/admin/dashboard', icon: '📊' },
-      { label: 'Overview', href: '/admin/overview', icon: '📈' },
-    ]
-  },
-  {
-    title: 'Ventas',
-    items: [
-      { label: 'Ventas', href: '/admin/ventas', icon: '💰' },
-      { label: 'Pedidos', href: '/admin/pedidos', icon: '📦' },
-      { label: 'Facturación', href: '/admin/facturacion', icon: '🧾' },
-    ]
-  },
-  {
-    title: 'Catálogo',
-    items: [
-      { label: 'Productos', href: '/admin/productos', icon: '👕' },
-      { label: 'Categorías', href: '/admin/categorias', icon: '📁' },
-      { label: 'Promociones', href: '/admin/promociones', icon: '🏷️' },
-      { label: 'Ediciones Limitadas', href: '/admin/edicion-limitada', icon: '✨' },
-      { label: 'Descuentos', href: '/admin/descuentos', icon: '❄️' },
-    ]
-  },
-  {
-    title: 'Operaciones',
-    items: [
-      { label: 'Stock Bajo', href: '/admin/stock-bajo', icon: '⚠️' },
-      { label: 'Webhooks', href: '/admin/webhooks', icon: '🔗' },
-    ]
-  },
-  {
-    title: 'Usuarios',
-    items: [
-      { label: 'Usuarios', href: '/admin/usuarios', icon: '👥' },
-      { label: 'Roles', href: '/admin/roles', icon: '🔐' },
-    ]
-  },
-  {
-    title: 'Configuración',
-    items: [
-      { label: 'Configuración', href: '/admin/configuracion', icon: '⚙️' },
-      { label: 'Datos del Local', href: '/admin/local', icon: '🏪' },
-      { label: 'Documentos Legales', href: '/admin/legales', icon: '⚖️' },
-    ]
-  }
-];
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { getMenuForRole } from '@/lib/navigation';
 
 interface SidebarProps {
   isDark?: boolean;
@@ -62,7 +14,17 @@ interface SidebarProps {
 
 export function Sidebar({ isDark = false, isMobile = false, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const { user } = useAuth();
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [mounted, setMounted] = useState(false);
+  
+  // Evitar hydration error
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
+  // Get role-based menu sections
+  const menuSections = user ? getMenuForRole(user.role) : [];
 
   const handleLinkClick = () => {
     if (isMobile && onClose) {
@@ -155,17 +117,19 @@ export function Sidebar({ isDark = false, isMobile = false, onClose }: SidebarPr
       {/* Footer Sidebar */}
       <div className="p-4 border-t border-border transition-colors duration-300 space-y-2">
         <button className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-muted hover:bg-surface-2 hover:text-foreground hover-glow-purple w-full">
-          <span>{isDark ? '🌙' : '☀️'}</span>
+          <span>{mounted ? (isDark ? 'ThemeToggle' : 'ThemeToggle') : 'ThemeToggle'}</span>
           <span>Toggle Theme</span>
         </button>
         
-        <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-2">
-          <div className="w-6 h-6 rounded-full bg-gradient-to-r from-orange-400 to-pink-400"></div>
-          <div>
-            <div className="text-xs font-medium text-foreground">Usuario autenticado</div>
-            <div className="text-xs">sesión activa</div>
+        {user && (
+          <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-2">
+            <div className="w-6 h-6 rounded-full bg-gradient-to-r from-orange-400 to-pink-400"></div>
+            <div>
+              <div className="text-xs font-medium text-foreground">{user.full_name || 'Usuario'}</div>
+              <div className="text-xs capitalize">{user.role ? user.role.replace('_', ' ') : 'customer'}</div>
+            </div>
           </div>
-        </div>
+        )}
         
         <Link 
           href="/" 

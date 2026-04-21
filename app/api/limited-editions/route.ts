@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { dispatchWebhook } from '@/lib/webhook';
 import { WEBHOOK_EVENTS } from '@/lib/constants';
 import { authorizeRoles } from '@/lib/api-auth';
 import { validateLimitedEditionPayload } from '@/lib/validators';
 
 export async function GET() {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabase
     .from('limited_editions')
-    .select('*, product:products(name, sku, price)');
+    .select('*, product:products(name, sku, price)')
+    .eq('is_active', true);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
     );
 
     return NextResponse.json(data, { status: 201 });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }

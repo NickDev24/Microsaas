@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifyToken } from '@/lib/jwt';
@@ -7,7 +7,7 @@ function isSuperAdminRole(role: string | null | undefined) {
   return String(role || '').trim().toLowerCase() === 'super_admin';
 }
 
-export async function GET(_request: NextRequest) {
+export async function GET() {
   const cookieStore = await cookies();
   const token = cookieStore.get('token')?.value;
   const payload = token ? verifyToken(token) : null;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 
@@ -29,16 +29,15 @@ interface User {
 
 export default function RolesPage() {
   const [activeTab, setActiveTab] = useState<'roles' | 'users' | 'permissions'>('roles');
-  const [roles, setRoles] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0, totalUsers: 0 });
   const [showCreateRoleForm, setShowCreateRoleForm] = useState(false);
   const [showCreateUserForm, setShowCreateUserForm] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<any>(null);
-  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await fetch('/api/roles');
@@ -51,11 +50,11 @@ export default function RolesPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const availablePermissions = [
     { group: 'Usuarios', permissions: ['users.create', 'users.read', 'users.update', 'users.delete'] },
@@ -181,15 +180,22 @@ export default function RolesPage() {
     }
   };
 
-  const activeUsers = users.filter(u => u.is_active);
-  const inactiveUsers = users.filter(u => !u.is_active);
-  const suspendedUsers = users.filter(u => u.status === 'suspended');
+  const activeUsers = users.filter(u => u.status === 'active');
+  const inactiveUsers = users.filter(u => u.status === 'inactive' || u.status === 'suspended');
 
   const tabs: Array<{ id: 'roles' | 'users' | 'permissions'; label: string; count: number }> = [
     { id: 'roles', label: 'Roles', count: roles.length },
     { id: 'users', label: 'Usuarios', count: users.length },
     { id: 'permissions', label: 'Permisos', count: availablePermissions.reduce((acc, group) => acc + group.permissions.length, 0) }
   ];
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="text-sm text-muted-2">Cargando...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -415,7 +421,7 @@ export default function RolesPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setSelectedUser(user)}
+                            onClick={() => {}}
                           >
                             Editar
                           </Button>

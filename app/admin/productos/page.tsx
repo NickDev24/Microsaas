@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import Image from 'next/image';
 import { DataTable } from '@/components/admin/DataTable';
 import { Button } from '@/components/ui/Button';
 import { FormModal } from '@/components/admin/FormModal';
@@ -29,7 +30,7 @@ export default function ProductsPage() {
   const [currentItem, setCurrentItem] = useState<ProductFormState | null>(null);
   const { addToast } = useToast();
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
       const [pRes, cRes] = await Promise.all([
@@ -40,16 +41,16 @@ export default function ProductsPage() {
       const cData = await cRes.json();
       setProducts(pData);
       setCategories(cData);
-    } catch (err) {
+    } catch {
       addToast('Error al cargar datos', 'error');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [addToast]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,8 +75,8 @@ export default function ProductsPage() {
       addToast(isEditing ? 'Producto actualizado' : 'Producto creado', 'success');
       setIsModalOpen(false);
       fetchData();
-    } catch (err: any) {
-      addToast(err.message, 'error');
+    } catch {
+      addToast('Error al guardar', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -92,8 +93,8 @@ export default function ProductsPage() {
       }
       addToast('Producto eliminado', 'success');
       fetchData();
-    } catch (err: any) {
-      addToast(err.message, 'error');
+    } catch {
+      addToast('Error al eliminar', 'error');
     }
   };
 
@@ -104,7 +105,13 @@ export default function ProductsPage() {
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-surface-2 rounded-lg overflow-hidden border border-border shrink-0">
             {row.product_images?.[0]?.url ? (
-              <img src={row.product_images[0].url} alt={row.name} className="w-full h-full object-cover" />
+              <Image
+                src={row.product_images[0].url}
+                alt={row.name}
+                width={48}
+                height={48}
+                className="w-full h-full object-cover"
+              />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-2">SIN FOTO</div>
             )}
@@ -118,7 +125,7 @@ export default function ProductsPage() {
     },
     {
       header: 'Categoría',
-      accessor: (row: any) => row.categories?.name || 'N/A'
+      accessor: (row: Product) => row.categories?.name || row.category?.name || 'N/A'
     },
     {
       header: 'Precio',

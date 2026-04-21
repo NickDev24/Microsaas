@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { DataTable } from '@/components/admin/DataTable';
 import { Button } from '@/components/ui/Button';
 import { FormModal } from '@/components/admin/FormModal';
@@ -8,17 +8,39 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { useToast } from '@/components/ui/Toast';
 import { Badge } from '@/components/ui/Badge';
+import type { Order, OrderStatus, Product } from '@/types';
+
+type OrderItemDraft = {
+  product_id: string;
+  quantity: number;
+  unit_price: number;
+};
+
+type OrderDraft = Omit<Partial<Order>, 'items'> & {
+  customer_name: string;
+  status: OrderStatus;
+  items: OrderItemDraft[];
+  total: number;
+};
+
+const statusBadgeVariant: Record<OrderStatus, 'warning' | 'success' | 'info' | 'error' | 'default'> = {
+  pendiente: 'warning',
+  confirmado: 'info',
+  enviado: 'info',
+  entregado: 'success',
+  cancelado: 'error',
+};
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [currentItem, setCurrentItem] = useState<any>(null);
+  const [currentItem, setCurrentItem] = useState<OrderDraft | null>(null);
   const { addToast } = useToast();
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
       const [res, prodRes] = await Promise.all([
@@ -27,11 +49,11 @@ export default function OrdersPage() {
       ]);
       setOrders(await res.json());
       setProducts(await prodRes.json());
-    } catch (err) { addToast('Error', 'error'); } 
+    } catch { addToast('Error', 'error'); }
     finally { setIsLoading(false); }
-  };
+  }, [addToast]);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,43 +69,39 @@ export default function OrdersPage() {
       addToast('Pedido cargado con éxito', 'success');
       setIsModalOpen(false);
       fetchData();
-    } catch (err) { addToast('Error', 'error'); } 
+    } catch { addToast('Error', 'error'); }
     finally { setIsSubmitting(false); }
   };
 
   const columns = [
-    { header: 'ID', accessor: (row: any) => row.id.split('-')[0].toUpperCase() },
+    { header: 'ID', accessor: (row: Order) => row.id.split('-')[0].toUpperCase() },
     { header: 'Cliente', accessor: 'customer_name' },
-    { header: 'Total', accessor: (row: any) => `$${row.total.toLocaleString()}` },
+    { header: 'Total', accessor: (row: Order) => `$${row.total.toLocaleString()}` },
     { 
       header: 'Estado', 
-      accessor: (row: any) => {
-        const variants: any = {
-          'pendiente': 'warning',
-          'pagado': 'success',
-          'enviado': 'info',
-          'entregado': 'success',
-          'cancelado': 'error'
-        };
-        return <Badge variant={variants[row.status] || 'default'}>{row.status.toUpperCase()}</Badge>;
+      accessor: (row: Order) => {
+        const variant = statusBadgeVariant[row.status] ?? 'default';
+        return <Badge variant={variant}>{row.status.toUpperCase()}</Badge>;
       } 
     },
-    { header: 'Fecha', accessor: (row: any) => new Date(row.created_at).toLocaleDateString() },
+    { header: 'Fecha', accessor: (row: Order) => new Date(row.created_at).toLocaleDateString() },
     {
       header: 'Acciones',
-      accessor: (row: any) => (
-        <Button variant="ghost" size="sm" onClick={() => { /* View details logic */ }}>Ver Detalle</Button>
+      accessor: () => (
+        <Button variant="ghost" size="sm" onClick={() => {}}>Ver Detalle</Button>
       ),
     },
   ];
 
   const addItem = () => {
-    const items = currentItem.items || [];
-    setCurrentItem({ ...currentItem, items: [...items, { product_id: '', quantity: 1, unit_price: 0 }] });
+    const base = currentItem ?? { customer_name: '', status: 'pendiente' as const, items: [], total: 0 };
+    const items = base.items || [];
+    setCurrentItem({ ...base, items: [...items, { product_id: '', quantity: 1, unit_price: 0 }] });
   };
 
-  const updateItem = (index: number, field: string, value: any) => {
-    const items = [...currentItem.items];
+  const updateItem = (index: number, field: keyof OrderItemDraft, value: string | number) => {
+    const base = currentItem ?? { customer_name: '', status: 'pendiente' as const, items: [], total: 0 };
+    const items = [...base.items];
     items[index] = { ...items[index], [field]: value };
     
     if (field === 'product_id') {
@@ -92,7 +110,7 @@ export default function OrdersPage() {
     }
 
     const total = items.reduce((acc, curr) => acc + (curr.quantity * curr.unit_price), 0);
-    setCurrentItem({ ...currentItem, items, total });
+    setCurrentItem({ ...base, items, total });
   };
 
   return (
@@ -117,17 +135,17 @@ export default function OrdersPage() {
         isLoading={isSubmitting}
       >
         <div className="grid grid-cols-2 gap-4">
-          <Input label="Nombre Cliente" value={currentItem?.customer_name || ''} onChange={(e) => setCurrentItem({ ...currentItem, customer_name: e.target.value })} required />
+          <Input label="Nombre Cliente" value={currentItem?.customer_name || ''} onChange={(e) => setCurrentItem({ ...(currentItem ?? { customer_name: '', status: 'pendiente', items: [], total: 0 }), customer_name: e.target.value })} required />
           <Select
             label="Estado"
             options={[
               { value: 'pendiente', label: 'Pendiente' },
-              { value: 'pagado', label: 'Pagado' },
+              { value: 'confirmado', label: 'Confirmado' },
               { value: 'enviado', label: 'Enviado' },
               { value: 'entregado', label: 'Entregado' },
             ]}
             value={currentItem?.status || 'pendiente'}
-            onChange={(e) => setCurrentItem({ ...currentItem, status: e.target.value })}
+            onChange={(e) => setCurrentItem({ ...(currentItem ?? { customer_name: '', status: 'pendiente', items: [], total: 0 }), status: e.target.value as OrderStatus })}
           />
         </div>
 
@@ -137,7 +155,7 @@ export default function OrdersPage() {
             <Button type="button" variant="outline" size="sm" onClick={addItem}>+ Agregar</Button>
           </div>
           
-          {currentItem?.items?.map((item: any, idx: number) => (
+          {currentItem?.items?.map((item, idx) => (
             <div key={idx} className="grid grid-cols-7 gap-2 items-end">
               <div className="col-span-3">
                 <Select

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 
@@ -433,18 +433,6 @@ Cualquier modificación a nuestras políticas de privacidad será comunicada:
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const getDocumentTypeLabel = (type: string) => {
-    const labels = {
-      privacy_policy: 'Política de Privacidad',
-      terms_of_service: 'Términos y Condiciones',
-      return_policy: 'Política de Devolución',
-      data_usage: 'Uso de Datos Personales',
-      shipping_policy: 'Política de Envío',
-      warranty_policy: 'Garantía'
-    };
-    return labels[type as keyof typeof labels] || type;
   };
 
   const tabs: Array<{ id: 'documents' | 'templates' | 'compliance'; label: string; icon: string }> = [

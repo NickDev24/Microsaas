@@ -55,6 +55,14 @@ export default function OverviewPage() {
       });
   }, []);
 
+  if (isLoading) {
+    return (
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="text-sm text-muted-2">Cargando...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header */}

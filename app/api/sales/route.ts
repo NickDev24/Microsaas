@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { authorizeRoles } from '@/lib/api-auth';
 import { validateSalePayload } from '@/lib/validators';
+import { createSaleWithItems } from '@/lib/transactions';
 
 type SaleItemInput = {
   product_id: string;
@@ -12,7 +13,7 @@ type SaleItemInput = {
 };
 
 export async function GET() {
-  const auth = await authorizeRoles(['super_admin', 'admin_basico']);
+  const auth = await authorizeRoles(['admin', 'super_admin', 'admin_basico']);
   if (!auth.ok) return auth.response;
 
   const { data, error } = await supabaseAdmin
@@ -48,52 +49,35 @@ export async function POST(request: NextRequest) {
 
     const items = Array.isArray(body.items) ? (body.items as SaleItemInput[]) : [];
 
-    // 1. Create sale
-    const { data: sale, error: saleError } = await supabaseAdmin
+    // Calculate total server-side if not provided
+    const calculatedTotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+    const finalTotal = salePayload.total || calculatedTotal;
+
+    // Use atomic transaction
+    const saleData = {
+      created_by: auth.payload.sub,
+      order_id: salePayload.order_id ? String(salePayload.order_id) : undefined,
+      customer_name: String(salePayload.customer_name || ''),
+      payment_method: String(salePayload.payment_method || 'efectivo'),
+      total: Number(finalTotal),
+      notes: String(salePayload.notes || ''),
+      sale_date: String(salePayload.sale_date || new Date().toISOString()),
+    };
+
+    const result = await createSaleWithItems(saleData, items, salePayload.order_id as string | undefined);
+    
+    if (!result.success) {
+      return NextResponse.json({ error: result.error_message }, { status: 500 });
+    }
+
+    // Fetch the complete sale with items
+    const { data: sale, error } = await supabaseAdmin
       .from('sales')
-      .insert({
-        created_by: auth.payload.sub,
-        order_id: salePayload.order_id,
-        customer_name: salePayload.customer_name,
-        payment_method: salePayload.payment_method || 'efectivo',
-        total: salePayload.total,
-        notes: salePayload.notes,
-        sale_date: salePayload.sale_date || new Date().toISOString(),
-      })
-      .select()
+      .select('*, sale_items(*)')
+      .eq('id', result.sale_id)
       .single();
 
-    if (saleError) return NextResponse.json({ error: saleError.message }, { status: 500 });
-
-    // 2. Create sale items
-    const itemsToInsert = items.map((item) => ({
-      sale_id: sale.id,
-      product_id: item.product_id,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      size: item.size,
-      color: item.color,
-      subtotal: item.quantity * item.unit_price,
-    }));
-
-    const { error: itemsError } = await supabaseAdmin.from('sale_items').insert(itemsToInsert);
-    if (itemsError) return NextResponse.json({ error: itemsError.message }, { status: 500 });
-
-    // 3. Update stock (Manual decrement on sale)
-    for (const item of items) {
-      await supabaseAdmin.rpc('decrement_stock', { 
-        p_id: item.product_id, 
-        p_qty: item.quantity 
-      });
-    }
-
-    // 4. Update order status if order_id is provided
-    if (salePayload.order_id) {
-      await supabaseAdmin
-        .from('orders')
-        .update({ status: 'entregado' })
-        .eq('id', salePayload.order_id);
-    }
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     return NextResponse.json(sale, { status: 201 });
   } catch (error) {

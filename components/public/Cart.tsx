@@ -6,16 +6,64 @@ import Image from 'next/image';
 
 export function Cart() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const { items, removeItem, updateQuantity, getTotalPrice, getWhatsAppMessage, clearCart } = useCartStore();
   const totalPrice = getTotalPrice();
 
-  const handleWhatsAppCheckout = () => {
-    const message = getWhatsAppMessage();
-    const phoneNumber = '5493875828874';
-    const url = `https://wa.me/${phoneNumber}?text=${message}`;
-    window.open(url, '_blank');
-    clearCart();
-    setIsOpen(false);
+  const handleWhatsAppCheckout = async () => {
+    if (items.length === 0) return;
+    
+    setIsProcessing(true);
+    
+    try {
+      // Create order in backend first
+      const orderData = {
+        customer_name: 'Cliente Web', // Could be enhanced with a form
+        customer_email: '', // Optional
+        customer_phone: '', // Optional
+        customer_address: '', // Optional
+        notes: 'Pedido desde tienda online',
+        items: items.map(item => ({
+          product_id: item.id,
+          quantity: item.quantity,
+          unit_price: item.price,
+          size: item.size,
+          color: item.color
+        }))
+      };
+
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al crear el pedido');
+      }
+
+      const order = await response.json();
+      
+      // Generate WhatsApp message with order number
+      const message = getWhatsAppMessage(order.order_number || `#${order.id.slice(0, 8)}`);
+      const phoneNumber = process.env.NEXT_PUBLIC_WHATSAPP_PHONE || '5493875828874';
+      const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+      
+      // Open WhatsApp
+      window.open(url, '_blank');
+      
+      // Clear cart and close
+      clearCart();
+      setIsOpen(false);
+      
+    } catch (error) {
+      console.error('Error processing order:', error);
+      alert('Error al procesar el pedido. Por favor intenta nuevamente.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -111,10 +159,15 @@ export function Cart() {
                   </div>
                   <button
                     onClick={handleWhatsAppCheckout}
-                    className="w-full bg-green-600 text-white py-3 rounded-full font-bold hover:bg-green-700 transition-all duration-200 transform hover:scale-105 flex items-center justify-center gap-2"
+                    disabled={isProcessing}
+                    className={`w-full py-3 rounded-full font-bold transition-all duration-200 transform hover:scale-105 flex items-center justify-center gap-2 ${
+                      isProcessing 
+                        ? 'bg-gray-400 text-white cursor-not-allowed' 
+                        : 'bg-green-600 text-white hover:bg-green-700'
+                    }`}
                   >
                     <span>📱</span>
-                    Pedir por WhatsApp
+                    {isProcessing ? 'Procesando...' : 'Pedir por WhatsApp'}
                   </button>
                   <button
                     onClick={() => setIsOpen(false)}

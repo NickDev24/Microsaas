@@ -11,6 +11,14 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Optimizar compilación para desarrollo
+  compiler: {
+    removeConsole: false, // Mantener console logs para debugging
+  },
+  // Configuración para desarrollo local
+  reactStrictMode: true,
+  // Habilitar cache optimizado
+  generateEtags: false,
 };
 
 export default nextConfig;

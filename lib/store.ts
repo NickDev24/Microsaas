@@ -8,6 +8,8 @@ interface CartItem {
   quantity: number;
   image?: string;
   category?: string;
+  size?: string;
+  color?: string;
 }
 
 interface CartStore {
@@ -18,7 +20,7 @@ interface CartStore {
   clearCart: () => void;
   getTotalItems: () => number;
   getTotalPrice: () => number;
-  getWhatsAppMessage: () => string;
+  getWhatsAppMessage: (orderNumber?: string) => string;
 }
 
 export const useCartStore = create<CartStore>()(
@@ -70,27 +72,39 @@ export const useCartStore = create<CartStore>()(
         return get().items.reduce((total, item) => total + item.price * item.quantity, 0);
       },
 
-      getWhatsAppMessage: () => {
+      getWhatsAppMessage: (orderNumber?: string) => {
         const { items, getTotalPrice } = get();
+        
         if (items.length === 0) return '';
         
-        let message = '🛍️ *NUEVO PEDIDO - MODASHOP*\n\n';
-        message += '📋 *DETALLE DE PRODUCTOS:*\n\n';
+        let message = '¡Hola! Quiero realizar el siguiente pedido:\n\n';
+        
+        if (orderNumber) {
+          message += `ð *NÚMERO DE PEDIDO: ${orderNumber}*\n\n`;
+        }
+        
+        message += 'ð *DETALLE DE PRODUCTOS:*\n\n';
         
         items.forEach((item, index) => {
           message += `${index + 1}. *${item.name}*\n`;
-          message += `   💰 $${item.price.toLocaleString()} x ${item.quantity} und\n`;
-          message += `   💵 Subtotal: $${(item.price * item.quantity).toLocaleString()}\n\n`;
+          if (item.size || item.color) {
+            const variants = [];
+            if (item.size) variants.push(`Talle: ${item.size}`);
+            if (item.color) variants.push(`Color: ${item.color}`);
+            message += `   ð Variante: ${variants.join(', ')}\n`;
+          }
+          message += `   ð° $${item.price.toLocaleString()} x ${item.quantity} und\n`;
+          message += `   ðµ Subtotal: $${(item.price * item.quantity).toLocaleString()}\n\n`;
         });
         
-        message += `💳 *TOTAL A PAGAR: $${getTotalPrice().toLocaleString()}*\n\n`;
-        message += '📦 *DATOS DE ENVÍO:* (Completar)\n';
-        message += '📍 Dirección:\n';
-        message += '🏢 Ciudad:\n';
-        message += '📞 Teléfono:\n\n';
-        message += '✅ *Confirmar pedido y proceder con el pago*';
+        message += `ð³ *TOTAL A PAGAR: $${getTotalPrice().toLocaleString()}*\n\n`;
+        message += 'ð¦ *DATOS DE ENVÍO:* (Completar)\n';
+        message += 'ðª Dirección:\n';
+        message += 'ð Ciudad:\n';
+        message += 'ð Teléfono:\n\n';
+        message += 'â *Confirmar pedido y proceder con el pago*';
         
-        return encodeURIComponent(message);
+        return message;
       },
     }),
     {

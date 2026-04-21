@@ -4,7 +4,7 @@ import { authorizeRoles } from '@/lib/api-auth';
 import { validateInvoicePayload } from '@/lib/validators';
 
 export async function GET() {
-  const auth = await authorizeRoles(['super_admin', 'admin_basico']);
+  const auth = await authorizeRoles(['admin', 'super_admin', 'admin_basico']);
   if (!auth.ok) return auth.response;
 
   const { data, error } = await supabaseAdmin
@@ -38,8 +38,15 @@ export async function POST(request: NextRequest) {
 
     if (saleError || !sale) return NextResponse.json({ error: 'Venta no encontrada' }, { status: 404 });
 
-    // 2. Generate invoice number (simple format: FAC-timestamp)
-    const invoice_number = `FAC-${Date.now()}`;
+    // 2. Generate invoice number using database sequence (robust for concurrency)
+    const { data: invoiceNumberResult, error: numberError } = await supabaseAdmin
+      .rpc('generate_invoice_number');
+
+    if (numberError || !invoiceNumberResult) {
+      return NextResponse.json({ error: 'Error generando número de factura' }, { status: 500 });
+    }
+
+    const invoice_number = invoiceNumberResult;
 
     // 3. Calculate taxes (21% default)
     const tax_rate = 21.00;
@@ -71,7 +78,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(invoice, { status: 201 });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }

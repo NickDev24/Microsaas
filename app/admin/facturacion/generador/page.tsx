@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 
@@ -174,6 +174,14 @@ export default function FacturacionPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
+  type InvoiceItem = InvoiceData['items'][number];
+  type InvoiceItemField = keyof InvoiceItem;
+
+  type TabId = 'generator' | 'history' | 'settings';
+  type CondicionIvaEmisor = InvoiceData['emisor']['condicionIva'];
+  type TipoDocumento = InvoiceData['receptor']['tipoDocumento'];
+  type TipoFactura = InvoiceData['factura']['tipo'];
+
   const addItem = () => {
     const newItem = {
       codigo: '',
@@ -194,13 +202,13 @@ export default function FacturacionPage() {
     }));
   };
 
-  const updateItem = (index: number, field: string, value: any) => {
+  const updateItem = (index: number, field: InvoiceItemField, value: InvoiceItem[InvoiceItemField]) => {
     setInvoiceData(prev => {
       const newItems = [...prev.items];
       const item = { ...newItems[index] };
       
       // Actualizar el campo específico
-      (item as any)[field] = value;
+      item[field] = value as never;
       
       // Recalcular totales del item
       const cantidad = item.cantidad || 0;
@@ -438,7 +446,7 @@ Esta factura electrónica ha sido generada según Resolución General 3670/2012 
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id as TabId)}
               className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === tab.id
                   ? 'border-accent text-accent'
@@ -498,7 +506,7 @@ Esta factura electrónica ha sido generada según Resolución General 3670/2012 
                       value={invoiceData.emisor.condicionIva}
                       onChange={(e) => setInvoiceData(prev => ({
                         ...prev,
-                        emisor: { ...prev.emisor, condicionIva: e.target.value as any }
+                        emisor: { ...prev.emisor, condicionIva: e.target.value as CondicionIvaEmisor }
                       }))}
                       className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
                     >
@@ -524,7 +532,7 @@ Esta factura electrónica ha sido generada según Resolución General 3670/2012 
                         value={invoiceData.receptor.tipoDocumento}
                         onChange={(e) => setInvoiceData(prev => ({
                           ...prev,
-                          receptor: { ...prev.receptor, tipoDocumento: e.target.value as any }
+                          receptor: { ...prev.receptor, tipoDocumento: e.target.value as TipoDocumento }
                         }))}
                         className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
                       >
@@ -594,7 +602,7 @@ Esta factura electrónica ha sido generada según Resolución General 3670/2012 
                     value={invoiceData.factura.tipo}
                     onChange={(e) => setInvoiceData(prev => ({
                       ...prev,
-                      factura: { ...prev.factura, tipo: e.target.value as any }
+                      factura: { ...prev.factura, tipo: e.target.value as TipoFactura }
                     }))}
                     className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
                   >

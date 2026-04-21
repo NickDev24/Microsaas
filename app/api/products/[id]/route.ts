@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { validateProduct } from '@/lib/validators';
 import { dispatchWebhook } from '@/lib/webhook';
 import { WEBHOOK_EVENTS } from '@/lib/constants';
@@ -11,12 +11,12 @@ type ProductImageInput = {
 };
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabase
     .from('products')
     .select('*, categories(name, slug), product_images(*)')
     .eq('id', id)
@@ -93,13 +93,13 @@ export async function PUT(
     );
 
     return NextResponse.json(product);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await authorizeRoles(['super_admin', 'admin_basico']);

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { ToastContainer } from '@/components/ui/Toast';
@@ -14,7 +13,6 @@ interface AdminLayoutProps {
 export function AdminLayout({ children }: AdminLayoutProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
 
@@ -62,7 +60,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <Topbar 
           isDark={isDark}
           isMobile={isMobile}
-          isSidebarOpen={isSidebarOpen}
           onToggleTheme={toggleTheme}
           onToggleSidebar={toggleSidebar}
         />

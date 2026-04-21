@@ -1,0 +1,780 @@
+openapi: 3.0.3
+info:
+  title: Micro-Saas Ropa API
+  description: API completa para el sistema de e-commerce de ropa con gestión de productos, pedidos, usuarios y más.
+  version: 1.0.0
+  contact:
+    name: Soporte Técnico
+    email: support@microsaas-ropa.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3001/api
+    description: Servidor de desarrollo
+  - url: https://api.microsaas-ropa.com/api
+    description: Servidor de producción
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Autenticación
+      summary: Iniciar sesión
+      description: Autentica un usuario y devuelve un token JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Email del usuario
+                  example: admin@example.com
+                password:
+                  type: string
+                  minLength: 6
+                  description: Contraseña del usuario
+                  example: password123
+      responses:
+        '200':
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  user:
+                    $ref: '#/components/schemas/User'
+                  token:
+                    type: string
+                    description: Token JWT para autenticación
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /products:
+    get:
+      tags:
+        - Productos
+      summary: Listar productos
+      description: Obtiene una lista de productos con paginación opcional
+      parameters:
+        - name: page
+          in: query
+          description: Número de página
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Límite de productos por página
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: category
+          in: query
+          description: Filtrar por categoría
+          schema:
+            type: string
+            enum: [clothing, accessories, shoes]
+        - name: search
+          in: query
+          description: Buscar productos por nombre
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de productos obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+    post:
+      tags:
+        - Productos
+      summary: Crear producto
+      description: Crea un nuevo producto (requiere autenticación de admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+      responses:
+        '201':
+          description: Producto creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /products/{id}:
+    get:
+      tags:
+        - Productos
+      summary: Obtener producto por ID
+      description: Obtiene los detalles de un producto específico
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID del producto
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Producto obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Productos
+      summary: Actualizar producto
+      description: Actualiza un producto existente (requiere autenticación de admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID del producto
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductUpdate'
+      responses:
+        '200':
+          description: Producto actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Productos
+      summary: Eliminar producto
+      description: Elimina un producto (requiere autenticación de admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID del producto
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Producto eliminado exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Producto eliminado exitosamente
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /users:
+    get:
+      tags:
+        - Usuarios
+      summary: Listar usuarios
+      description: Obtiene una lista de usuarios (solo super_admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Número de página
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Límite de usuarios por página
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: role
+          in: query
+          description: Filtrar por rol
+          schema:
+            type: string
+            enum: [super_admin, admin_basico, customer]
+      responses:
+        '200':
+          description: Lista de usuarios obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /users/{id}:
+    put:
+      tags:
+        - Usuarios
+      summary: Actualizar usuario
+      description: Actualiza un usuario existente (solo super_admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID del usuario
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                full_name:
+                  type: string
+                  description: Nombre completo del usuario
+                  example: Juan Pérez
+                role:
+                  type: string
+                  enum: [super_admin, admin_basico, customer]
+                  description: Rol del usuario
+                  example: admin_basico
+                is_active:
+                  type: boolean
+                  description: Estado del usuario
+                  example: true
+      responses:
+        '200':
+          description: Usuario actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /orders:
+    get:
+      tags:
+        - Pedidos
+      summary: Listar pedidos
+      description: Obtiene una lista de pedidos (requiere autenticación)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Número de página
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Límite de pedidos por página
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          description: Filtrar por estado
+          schema:
+            type: string
+            enum: [pendiente, confirmado, enviado, entregado, cancelado]
+      responses:
+        '200':
+          description: Lista de pedidos obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Pedidos
+      summary: Crear pedido
+      description: Crea un nuevo pedido (requiere autenticación)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderInput'
+      responses:
+        '201':
+          description: Pedido creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: ID único del usuario
+          example: 123e4567-e89b-12d3-a456-426614174000
+        email:
+          type: string
+          format: email
+          description: Email del usuario
+          example: admin@example.com
+        full_name:
+          type: string
+          description: Nombre completo del usuario
+          example: Administrador del Sistema
+        role:
+          type: string
+          enum: [super_admin, admin_basico, customer]
+          description: Rol del usuario
+          example: admin_basico
+        is_active:
+          type: boolean
+          description: Estado del usuario
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          description: Fecha de creación
+          example: 2024-01-01T00:00:00Z
+        updated_at:
+          type: string
+          format: date-time
+          description: Fecha de última actualización
+          example: 2024-01-01T00:00:00Z
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: ID único del producto
+          example: 123e4567-e89b-12d3-a456-426614174000
+        name:
+          type: string
+          description: Nombre del producto
+          example: Camiseta Básica
+        description:
+          type: string
+          description: Descripción del producto
+          example: Camiseta de algodón 100% orgánico
+        price:
+          type: number
+          format: decimal
+          description: Precio del producto
+          example: 29.99
+        category:
+          type: string
+          enum: [clothing, accessories, shoes]
+          description: Categoría del producto
+          example: clothing
+        stock:
+          type: integer
+          minimum: 0
+          description: Stock disponible
+          example: 50
+        sku:
+          type: string
+          description: SKU del producto
+          example: CAM-001
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: URLs de las imágenes del producto
+          example: ["https://example.com/image1.jpg"]
+        is_active:
+          type: boolean
+          description: Estado del producto
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          description: Fecha de creación
+          example: 2024-01-01T00:00:00Z
+        updated_at:
+          type: string
+          format: date-time
+          description: Fecha de última actualización
+          example: 2024-01-01T00:00:00Z
+
+    ProductInput:
+      type: object
+      required:
+        - name
+        - price
+        - category
+        - stock
+        - sku
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Nombre del producto
+          example: Camiseta Básica
+        description:
+          type: string
+          maxLength: 1000
+          description: Descripción del producto
+          example: Camiseta de algodón 100% orgánico
+        price:
+          type: number
+          minimum: 0
+          description: Precio del producto
+          example: 29.99
+        category:
+          type: string
+          enum: [clothing, accessories, shoes]
+          description: Categoría del producto
+          example: clothing
+        stock:
+          type: integer
+          minimum: 0
+          description: Stock disponible
+          example: 50
+        sku:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: SKU del producto
+          example: CAM-001
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: URLs de las imágenes del producto
+          example: ["https://example.com/image1.jpg"]
+        is_active:
+          type: boolean
+          description: Estado del producto
+          default: true
+
+    ProductUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Nombre del producto
+          example: Camiseta Actualizada
+        description:
+          type: string
+          maxLength: 1000
+          description: Descripción del producto
+          example: Descripción actualizada
+        price:
+          type: number
+          minimum: 0
+          description: Precio del producto
+          example: 39.99
+        category:
+          type: string
+          enum: [clothing, accessories, shoes]
+          description: Categoría del producto
+          example: accessories
+        stock:
+          type: integer
+          minimum: 0
+          description: Stock disponible
+          example: 25
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: URLs de las imágenes del producto
+          example: ["https://example.com/image2.jpg"]
+        is_active:
+          type: boolean
+          description: Estado del producto
+          example: false
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: ID único del pedido
+          example: 123e4567-e89b-12d3-a456-426614174000
+        customer_name:
+          type: string
+          description: Nombre del cliente
+          example: Juan Pérez
+        customer_email:
+          type: string
+          format: email
+          description: Email del cliente
+          example: juan@example.com
+        status:
+          type: string
+          enum: [pendiente, confirmado, enviado, entregado, cancelado]
+          description: Estado del pedido
+          example: pendiente
+        total:
+          type: number
+          format: decimal
+          description: Total del pedido
+          example: 59.98
+        payment_method:
+          type: string
+          enum: [cash, card, transfer, mercado_pago]
+          description: Método de pago
+          example: card
+        shipping_address:
+          type: string
+          description: Dirección de envío
+          example: Calle Falsa 123, Ciudad, País
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+          description: Items del pedido
+        created_at:
+          type: string
+          format: date-time
+          description: Fecha de creación
+          example: 2024-01-01T00:00:00Z
+        updated_at:
+          type: string
+          format: date-time
+          description: Fecha de última actualización
+          example: 2024-01-01T00:00:00Z
+
+    OrderItem:
+      type: object
+      properties:
+        product_id:
+          type: string
+          format: uuid
+          description: ID del producto
+          example: 123e4567-e89b-12d3-a456-426614174000
+        product_name:
+          type: string
+          description: Nombre del producto
+          example: Camiseta Básica
+        quantity:
+          type: integer
+          minimum: 1
+          description: Cantidad
+          example: 2
+        unit_price:
+          type: number
+          format: decimal
+          description: Precio unitario
+          example: 29.99
+        total:
+          type: number
+          format: decimal
+          description: Total del item
+          example: 59.98
+
+    OrderInput:
+      type: object
+      required:
+        - customer_name
+        - customer_email
+        - items
+        - shipping_address
+        - payment_method
+      properties:
+        customer_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Nombre del cliente
+          example: Juan Pérez
+        customer_email:
+          type: string
+          format: email
+          description: Email del cliente
+          example: juan@example.com
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+              - product_id
+              - quantity
+            properties:
+              product_id:
+                type: string
+                format: uuid
+                description: ID del producto
+                example: 123e4567-e89b-12d3-a456-426614174000
+              quantity:
+                type: integer
+                minimum: 1
+                description: Cantidad
+                example: 2
+        shipping_address:
+          type: string
+          minLength: 10
+          description: Dirección de envío
+          example: Calle Falsa 123, Ciudad, País
+        payment_method:
+          type: string
+          enum: [cash, card, transfer, mercado_pago]
+          description: Método de pago
+          example: card
+
+  responses:
+    BadRequest:
+      description: Solicitud inválida
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                description: Mensaje de error
+                example: Datos inválidos
+              details:
+                type: string
+                description: Detalles adicionales del error
+                example: El campo email es requerido
+
+    Unauthorized:
+      description: No autorizado
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                description: Mensaje de error
+                example: No autorizado
+
+    Forbidden:
+      description: Acceso prohibido
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                description: Mensaje de error
+                example: Acceso prohibido
+
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                description: Mensaje de error
+                example: Recurso no encontrado
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Autenticación JWT mediante token en cookies o header Authorization

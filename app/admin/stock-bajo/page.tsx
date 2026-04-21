@@ -25,7 +25,7 @@ interface LowStockItem {
 
 export default function StockBajoPage() {
   const [activeTab, setActiveTab] = useState<'critical' | 'warning' | 'all'>('critical');
-  const [stockItems, setStockItems] = useState<any[]>([]);
+  const [stockItems, setStockItems] = useState<LowStockItem[]>([]);
   const [stats, setStats] = useState({ total: 0, critical: 0, warning: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -54,10 +54,6 @@ export default function StockBajoPage() {
     if (activeTab === 'warning') return item.status === 'warning';
     return true; // all
   });
-
-  const criticalItems = stockItems.filter(item => item.status === 'critical');
-  const warningItems = stockItems.filter(item => item.status === 'warning');
-  const normalItems = stockItems.filter(item => item.status === 'normal');
 
   const tabs: Array<{ id: 'critical' | 'warning' | 'all'; label: string; count: number; color: string }> = [
     { id: 'critical', label: 'Crítico', count: stats.critical, color: 'text-red-500' },
@@ -119,6 +115,14 @@ export default function StockBajoPage() {
     return Math.round((current / max) * 100);
   };
 
+  if (isLoading) {
+    return (
+      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="text-sm text-muted-2">Cargando...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header */}
@@ -173,7 +177,7 @@ export default function StockBajoPage() {
             <span className="text-2xl">💰</span>
           </div>
           <div className="text-2xl font-bold text-green-500">
-            ${stockItems.reduce((total, item) => total + (item.price * item.stock), 0).toLocaleString('es-AR')}
+            ${stockItems.reduce((total, item) => total + (item.price * item.currentStock), 0).toLocaleString('es-AR')}
           </div>
           <div className="text-xs text-muted-2">Valor del inventario actual</div>
         </div>

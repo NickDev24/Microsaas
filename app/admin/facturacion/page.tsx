@@ -1,38 +1,39 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { DataTable } from '@/components/admin/DataTable';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useToast } from '@/components/ui/Toast';
+import type { Invoice } from '@/types';
 
 export default function InvoicesPage() {
-  const [invoices, setInvoices] = useState<any[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { addToast } = useToast();
 
-  const fetchInvoices = async () => {
+  const fetchInvoices = useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await fetch('/api/invoices');
       const data = await res.json();
       setInvoices(data);
-    } catch (err) { addToast('Error', 'error'); } 
+    } catch { addToast('Error', 'error'); }
     finally { setIsLoading(false); }
-  };
+  }, [addToast]);
 
-  useEffect(() => { fetchInvoices(); }, []);
+  useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
 
   const columns = [
     { header: 'Nro Factura', accessor: 'invoice_number' },
     { header: 'Cliente', accessor: 'customer_name' },
-    { header: 'Emisión', accessor: (row: any) => new Date(row.issued_at).toLocaleDateString() },
-    { header: 'Subtotal', accessor: (row: any) => `$${row.subtotal.toLocaleString()}` },
-    { header: 'Impuestos (21%)', accessor: (row: any) => `$${row.tax_amount.toLocaleString()}` },
-    { header: 'Total', accessor: (row: any) => <span className="font-bold">${row.total.toLocaleString()}</span> },
+    { header: 'Emisión', accessor: (row: Invoice) => new Date(row.issued_at ?? row.created_at).toLocaleDateString() },
+    { header: 'Subtotal', accessor: (row: Invoice) => `$${row.subtotal.toLocaleString()}` },
+    { header: 'Impuestos (21%)', accessor: (row: Invoice) => `$${row.tax_amount.toLocaleString()}` },
+    { header: 'Total', accessor: (row: Invoice) => <span className="font-bold">${row.total.toLocaleString()}</span> },
     { 
       header: 'Estado', 
-      accessor: (row: any) => (
+      accessor: (row: Invoice) => (
         <Badge variant={row.status === 'emitida' ? 'success' : 'default'}>
           {row.status.toUpperCase()}
         </Badge>
@@ -40,7 +41,7 @@ export default function InvoicesPage() {
     },
     {
       header: 'Acciones',
-      accessor: (row: any) => (
+      accessor: () => (
         <Button variant="ghost" size="sm" onClick={() => window.print()}>Imprimir</Button>
       ),
     },

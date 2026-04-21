@@ -16,19 +16,11 @@ Se ha creado un esquema de base de datos completo y optimizado para el e-commerc
 
 ### 2. **Verificar Usuario Administrador**
 ```sql
--- Confirmar que el usuario admin fue creado
-SELECT * FROM users WHERE email = 'admin-test@gmail.com';
+-- Confirmar que el usuario administrador fue creado
+SELECT id, email, role, is_active, created_at
+FROM users
+WHERE email = '<tu-email-admin>';
 ```
-
----
-
-## 👤 **Credenciales de Acceso**
-
-### **Usuario Administrador**
-- **Email**: `admin-test@gmail.com`
-- **Contraseña**: `admin123`
-- **Rol**: `admin`
-- **Estado**: Activo ✅
 
 ---
 
@@ -39,7 +31,7 @@ SELECT * FROM users WHERE email = 'admin-test@gmail.com';
 #### **1. users** - Gestión de Usuarios
 ```sql
 - Autenticación con bcrypt
-- Roles: admin, manager, customer
+- Roles: admin_basico, super_admin, customer
 - Timestamps automáticos
 - Validación de email único
 ```

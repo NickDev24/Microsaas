@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { authorizeRoles } from '@/lib/api-auth';
 
@@ -14,7 +14,7 @@ export async function GET() {
   return NextResponse.json(data);
 }
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   // Use the register route for user creation
   return NextResponse.json({ error: 'Use /api/auth/register for user creation' }, { status: 405 });
 }

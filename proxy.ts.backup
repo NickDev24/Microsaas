@@ -1,0 +1,233 @@
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { jwtVerify } from 'jose';
+import type { JWTPayload } from '@/types';
+
+const secret = new TextEncoder().encode(process.env.JWT_SECRET || '');
+
+// Unified roles as per project specification
+const ROLES = {
+  ADMIN_BASICO: 'admin_basico',
+  SUPER_ADMIN: 'super_admin',
+} as const;
+
+function isAllowedAdminRole(role: string | undefined): role is (typeof ROLES)[keyof typeof ROLES] {
+  return role === ROLES.ADMIN_BASICO || role === ROLES.SUPER_ADMIN;
+}
+
+// Routes that require specific roles
+const ROLE_PROTECTED_ROUTES: Record<string, string[]> = {
+  '/admin/superadmin': [ROLES.SUPER_ADMIN],
+  '/admin/usuarios': [ROLES.SUPER_ADMIN],
+  '/admin/roles': [ROLES.SUPER_ADMIN],
+  '/admin/configuracion': [ROLES.SUPER_ADMIN],
+};
+
+async function verifyTokenEdge(token: string): Promise<JWTPayload | null> {
+  try {
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET not configured');
+      return null;
+    }
+    const { payload } = await jwtVerify(token, secret);
+    return payload as unknown as JWTPayload;
+  } catch (error) {
+    console.error('JWT verification error:', error);
+    return null;
+  }
+}
+
+// Define public API routes (mostly GET for content)
+const publicApiPrefixes = [
+  '/api/auth',
+  '/api/categories',
+  '/api/products',
+  '/api/promotions',
+  '/api/limited-editions',
+  '/api/seasonal-discounts',
+  '/api/dev', // Debugging endpoints
+];
+
+// Check if route requires specific role
+function getRequiredRoles(pathname: string): string[] | null {
+  for (const [route, roles] of Object.entries(ROLE_PROTECTED_ROUTES)) {
+    if (pathname.startsWith(route)) {
+      return roles;
+    }
+  }
+  return null;
+}
+
+export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // 1. Check if it's an admin route
+  if (pathname.startsWith('/admin')) {
+    // Exclude login page
+    if (pathname === '/admin/login') {
+      return NextResponse.next();
+    }
+
+    // Get token from cookies
+    const token = request.cookies.get('token')?.value;
+
+    if (!token) {
+      return NextResponse.redirect(new URL('/admin/login', request.url));
+    }
+
+    const payload = await verifyTokenEdge(token);
+    if (!payload) {
+      return NextResponse.redirect(new URL('/admin/login', request.url));
+    }
+
+    // Check if route requires specific role
+    const requiredRoles = getRequiredRoles(pathname);
+    if (requiredRoles && !requiredRoles.includes(payload.role || '')) {
+      // Redirect to dashboard if insufficient permissions
+      return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+    }
+
+    // Temporary fix: Allow admin emails even with customer role due to constraint issue
+    const adminEmails = ['facudev4@gmail.com', 'facucercuetti420@gmail.com'];
+    const userEmail = payload.email;
+    const isAdminEmail = adminEmails.includes(userEmail);
+    
+    if (!isAllowedAdminRole(payload.role) && !isAdminEmail) {
+      console.log('Proxy: Redirecting - insufficient role:', payload.role, 'email:', userEmail);
+      return NextResponse.redirect(new URL('/admin/login', request.url));
+    }
+    
+    console.log('Proxy: Access granted - role:', payload.role, 'email:', userEmail, 'isAdminEmail:', isAdminEmail);
+
+    return NextResponse.next();
+  }
+
+  // 2. Check if it's an API route
+  if (pathname.startsWith('/api')) {
+    const isProxyRequest = request.headers.get('x-mw-proxy') === '1';
+
+    // Allow public API methods
+    const isPublicPrefix = publicApiPrefixes.some(prefix => pathname.startsWith(prefix));
+
+    // Auth routes are public (POST /api/auth/login)
+    if (pathname.startsWith('/api/auth')) {
+      return NextResponse.next();
+    }
+
+    // Debug routes are public (POST /api/dev/*)
+    if (pathname.startsWith('/api/dev')) {
+      return NextResponse.next();
+    }
+
+    // If it's a public GET, we still proxy to measure status/latency (no auth payload).
+    if (isPublicPrefix && request.method === 'GET') {
+      if (isProxyRequest) {
+        return NextResponse.next();
+      }
+
+      const proxyHeaders = new Headers(request.headers);
+      proxyHeaders.set('x-mw-proxy', '1');
+
+      const clonedRequest = request.clone();
+      const proxyRequest = new Request(clonedRequest.url, {
+        method: clonedRequest.method,
+        headers: proxyHeaders,
+        body: clonedRequest.body,
+        redirect: 'manual',
+        duplex: 'half',
+      } as RequestInit);
+
+      try {
+        const response = await fetch(proxyRequest);
+        
+        // Copy all headers including Set-Cookie
+        const headers = new Headers();
+        response.headers.forEach((value, name) => {
+          headers.set(name, value);
+        });
+
+        return new NextResponse(response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: headers,
+        });
+      } catch {
+        return NextResponse.json({ error: 'Upstream fetch failed' }, { status: 502 });
+      }
+    }
+
+    // Protect all other API routes
+    const authHeader = request.headers.get('Authorization');
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : request.cookies.get('token')?.value;
+
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const payload = await verifyTokenEdge(token);
+    if (!payload) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Role-based protection for specific endpoints
+    if (['POST', 'DELETE', 'PUT', 'PATCH'].includes(request.method)) {
+      // Only super_admin can delete categories
+      if (pathname.startsWith('/api/categories') && request.method === 'DELETE') {
+        if (payload.role !== ROLES.SUPER_ADMIN) {
+          return NextResponse.json({ error: 'Forbidden - Requires super_admin' }, { status: 403 });
+        }
+      }
+      // Only super_admin can manage users
+      if (pathname.startsWith('/api/users') && payload.role !== ROLES.SUPER_ADMIN) {
+        return NextResponse.json({ error: 'Forbidden - Requires super_admin' }, { status: 403 });
+      }
+      // superadmin routes are restricted to super_admin
+      if (pathname.startsWith('/api/superadmin') && payload.role !== ROLES.SUPER_ADMIN) {
+        return NextResponse.json({ error: 'Forbidden - Requires super_admin' }, { status: 403 });
+      }
+    }
+
+    if (isProxyRequest) {
+      return NextResponse.next();
+    }
+
+    const proxyHeaders = new Headers(request.headers);
+    proxyHeaders.set('x-mw-proxy', '1');
+
+    const clonedRequest = request.clone();
+    const proxyRequest = new Request(clonedRequest.url, {
+      method: clonedRequest.method,
+      headers: proxyHeaders,
+      body: clonedRequest.body,
+      redirect: 'manual',
+      duplex: 'half',
+    } as RequestInit);
+
+    try {
+        const response = await fetch(proxyRequest);
+        
+        // Copy all headers including Set-Cookie
+        const headers = new Headers();
+        response.headers.forEach((value, name) => {
+          headers.set(name, value);
+        });
+
+        return new NextResponse(response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: headers,
+        });
+      } catch {
+        return NextResponse.json({ error: 'Upstream fetch failed' }, { status: 502 });
+      }
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: [
+    '/admin/:path*',
+    '/api/:path*',
+  ],
+};

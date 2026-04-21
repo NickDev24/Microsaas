@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { authorizeRoles } from '@/lib/api-auth';
 import { validateOrderPayload } from '@/lib/validators';
+import { createOrderWithItems } from '@/lib/transactions';
 
 type OrderItemInput = {
   product_id: string;
@@ -11,8 +12,8 @@ type OrderItemInput = {
   color?: string;
 };
 
-export async function GET(request: NextRequest) {
-  const auth = await authorizeRoles(['super_admin', 'admin_basico']);
+export async function GET() {
+  const auth = await authorizeRoles(['admin', 'super_admin', 'admin_basico']);
   if (!auth.ok) return auth.response;
 
   const { data, error } = await supabaseAdmin
@@ -49,37 +50,36 @@ export async function POST(request: NextRequest) {
 
     const items = Array.isArray(body.items) ? (body.items as OrderItemInput[]) : [];
 
-    // 1. Create order
-    const { data: order, error: orderError } = await supabaseAdmin
+    // Calculate total server-side if not provided
+    const calculatedTotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+    const finalTotal = orderPayload.total || calculatedTotal;
+
+    // Use atomic transaction
+    const orderData = {
+      created_by: auth.payload.sub,
+      customer_name: String(orderPayload.customer_name || ''),
+      customer_email: String(orderPayload.customer_email || ''),
+      customer_phone: String(orderPayload.customer_phone || ''),
+      customer_address: String(orderPayload.customer_address || ''),
+      status: String(orderPayload.status || 'pendiente'),
+      total: Number(finalTotal),
+      notes: String(orderPayload.notes || ''),
+    };
+
+    const result = await createOrderWithItems(orderData, items);
+    
+    if (!result.success) {
+      return NextResponse.json({ error: result.error_message }, { status: 500 });
+    }
+
+    // Fetch the complete order with items
+    const { data: order, error } = await supabaseAdmin
       .from('orders')
-      .insert({
-        created_by: auth.payload.sub,
-        customer_name: orderPayload.customer_name,
-        customer_email: orderPayload.customer_email,
-        customer_phone: orderPayload.customer_phone,
-        customer_address: orderPayload.customer_address,
-        status: orderPayload.status || 'pendiente',
-        total: orderPayload.total || 0,
-        notes: orderPayload.notes,
-      })
-      .select()
+      .select('*, order_items(*)')
+      .eq('id', result.order_id)
       .single();
 
-    if (orderError) return NextResponse.json({ error: orderError.message }, { status: 500 });
-
-    // 2. Create order items
-    const itemsToInsert = items.map((item) => ({
-      order_id: order.id,
-      product_id: item.product_id,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      size: item.size,
-      color: item.color,
-      subtotal: item.quantity * item.unit_price,
-    }));
-
-    const { error: itemsError } = await supabaseAdmin.from('order_items').insert(itemsToInsert);
-    if (itemsError) return NextResponse.json({ error: itemsError.message }, { status: 500 });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     return NextResponse.json(order, { status: 201 });
   } catch (error) {
